@@ -115,14 +115,14 @@ static void xf055fhd03_init_sequence(struct lcm *ctx)
                         __func__, PTR_ERR(ctx->reset_gpio));
                 return;
         }
-        gpiod_set_value(ctx->reset_gpio, 0);
-        udelay(20);
+//        gpiod_set_value(ctx->reset_gpio, 0);
+//        udelay(4);
         gpiod_set_value(ctx->reset_gpio, 1);
-        mdelay(20);
+        mdelay(50);
         gpiod_set_value(ctx->reset_gpio, 0);
         mdelay(20);
         gpiod_set_value(ctx->reset_gpio, 1);
-        mdelay(150);//ili9882q at least 10ms
+        mdelay(150);
         devm_gpiod_put(ctx->dev, ctx->reset_gpio);
 
 

@@ -6,7 +6,7 @@ obj-m := ./src/panel-himax-hx8399c-fhdplus.o
 
 all:
 	make -C $(KPATH) M=$(CURDIR) modules
-
+	xz -9 -k -f src/panel-himax-hx8399c-fhdplus.ko
 clean:
 	make -C $(KPATH) M=$(CURDIR) clean
 	rm -rf ./doc

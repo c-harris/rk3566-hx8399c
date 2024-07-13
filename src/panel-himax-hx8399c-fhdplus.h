@@ -43,12 +43,12 @@
 /* enable Readback support on panel" */
 #define PANEL_SUPPORT_READBACK
 
-#define HFP (5) // horizontal frontporch
-#define HSA (5) // horizontal sync active
-#define HBP (5) // horizontal backporch
-#define VFP (2) // vertical frontporch
-#define VSA (2) // vertical sync active
-#define VBP (2) // vertical backporch
+#define HFP (16) // horizontal frontporch
+#define HSA (40) // horizontal sync active
+#define HBP (40) // horizontal backporch
+#define VFP (9) // vertical frontporch
+#define VSA (4) // vertical sync active
+#define VBP (3) // vertical backporch
 #define VAC (2160) // vertical resolution
 #define HAC (1080) // hoeizontal resolution
 
@@ -65,5 +65,5 @@ static struct drm_display_mode default_mode = {
 };
 
 
-#endif	/* __SPI_L3GD20_H__ */
+#endif	/* __PANEL_HX8399C_H__ */
 

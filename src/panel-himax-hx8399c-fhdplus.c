@@ -240,7 +240,7 @@ static int HX8399_unprepare(struct drm_panel *panel)
 {
         struct lcm *ctx = panel_to_HX8399(panel);
 
-        pr_info("%s\n", __func__);
+        pr_info("%s+\n", __func__);
         if (!ctx->prepared)
                 return 0;
         //mipi_dsi_dcs_write_seq_static(ctx, 0xFF, 0x98, 0x81, 0x00);
@@ -273,7 +273,7 @@ static int HX8399_prepare(struct drm_panel *panel)
         struct lcm *ctx = panel_to_HX8399(panel);
         int ret;
 
-        pr_info("%s\n", __func__);
+        pr_info("%s+\n", __func__);
         if (ctx->prepared)
                 return 0;
         gpiod_set_value_cansleep(ctx->reset_gpio, 1);
@@ -282,12 +282,6 @@ static int HX8399_prepare(struct drm_panel *panel)
 		if (ret) {
 			dev_err(ctx->dev, "Failed to enable vcc supply: %d\n", ret);
 			return ret;
-		}
-	
-		ret = regulator_enable(ctx->iovcc);
-		if (ret) {
-			dev_err(ctx->dev, "Failed to enable iovcc supply: %d\n", ret);
-			goto disable_vcc;
 		}
 
 		gpiod_set_value_cansleep(ctx->reset_gpio, 0);
@@ -311,6 +305,8 @@ static int HX8399_prepare(struct drm_panel *panel)
 disable_vcc:
 	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
 	regulator_disable(ctx->vcc);
+	pr_info("%s disable_vcc-\n", __func__);
+
 	return ret;
 }
 
@@ -327,6 +323,7 @@ static int HX8399_enable(struct drm_panel *panel)
         }
 
         ctx->enabled = true;
+        pr_info("%s-\n", __func__);
 
         return 0;
 }
@@ -464,6 +461,7 @@ static int lcm_remove(struct mipi_dsi_device *dsi)
         pr_info("%s+\n", __func__);
         mipi_dsi_detach(dsi);
         drm_panel_remove(&ctx->panel);
+        pr_info("%s-\n", __func__);
 
         return 0;
 }

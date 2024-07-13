@@ -11,5 +11,7 @@ clean:
 	make -C $(KPATH) M=$(CURDIR) clean
 	rm -rf ./doc
 
+modules_install:
+	make -C $(KPATH) M=$(CURDIR) modules_install
 doc:
 	doxygen ./Doxyfile

@@ -22,13 +22,12 @@
 #define REGFLAG_DELAY			0xFFFC
 
 
-struct lcm {
+struct hx8399c {
         struct device *dev;
         struct drm_panel panel;
         struct backlight_device *backlight;
         struct gpio_desc *reset_gpio;
 		struct regulator *vcc;
-		struct regulator *iovcc;
 
         bool prepared;
         bool enabled;
@@ -51,12 +50,12 @@ struct lcm {
                 internal_mipi_dsi_dcs_write(ctx, d, ARRAY_SIZE(d));                          \
         })
 
-static inline struct lcm *panel_to_HX8399(struct drm_panel *panel)
+static inline struct hx8399c *panel_to_HX8399(struct drm_panel *panel)
 {
-        return container_of(panel, struct lcm, panel);
+        return container_of(panel, struct hx8399c, panel);
 }
 
-static void internal_mipi_dsi_dcs_write(struct lcm *ctx, const void *data, size_t len)
+static void internal_mipi_dsi_dcs_write(struct hx8399c *ctx, const void *data, size_t len)
 {
         struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
         ssize_t ret;
@@ -77,7 +76,7 @@ static void internal_mipi_dsi_dcs_write(struct lcm *ctx, const void *data, size_
 }
 
 #ifdef PANEL_SUPPORT_READBACK
-static int lcm_dcs_read(struct lcm *ctx, u8 cmd, void *data, size_t len)
+static int hx8399c_dcs_read(struct hx8399c *ctx, u8 cmd, void *data, size_t len)
 {
         struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
         ssize_t ret;
@@ -94,20 +93,20 @@ static int lcm_dcs_read(struct lcm *ctx, u8 cmd, void *data, size_t len)
         return ret;
 }
 
-static void lcm_panel_get_data(struct lcm *ctx)
+static void hx8399c_panel_get_data(struct hx8399c *ctx)
 {
         u8 buffer[3] = {0};
         static int ret;
 
         if (ret == 0) {
-                ret = lcm_dcs_read(ctx, 0x0A, buffer, 1);
+                ret = hx8399c_dcs_read(ctx, 0x0A, buffer, 1);
                 dev_info(ctx->dev, "return %d data(0x%08x) to dsi engine\n",
                          ret, buffer[0] | (buffer[1] << 8));
         }
 }
 #endif
 
-static void xf055fhd03_init_sequence(struct lcm *ctx)
+static void xf055fhd03_init_sequence(struct hx8399c *ctx)
 {
         ctx->reset_gpio =
                 devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
@@ -221,7 +220,7 @@ static void xf055fhd03_init_sequence(struct lcm *ctx)
 
 static int HX8399_disable(struct drm_panel *panel)
 {
-        struct lcm *ctx = panel_to_HX8399(panel);
+        struct hx8399c *ctx = panel_to_HX8399(panel);
 
         if (!ctx->enabled)
                 return 0;
@@ -238,7 +237,7 @@ static int HX8399_disable(struct drm_panel *panel)
 
 static int HX8399_unprepare(struct drm_panel *panel)
 {
-        struct lcm *ctx = panel_to_HX8399(panel);
+        struct hx8399c *ctx = panel_to_HX8399(panel);
 
         pr_info("%s+\n", __func__);
         if (!ctx->prepared)
@@ -262,7 +261,6 @@ static int HX8399_unprepare(struct drm_panel *panel)
         gpiod_set_value(ctx->reset_gpio, 0);
         devm_gpiod_put(ctx->dev, ctx->reset_gpio);
 
-       	regulator_disable(ctx->iovcc);
 	regulator_disable(ctx->vcc);
 
         return 0;
@@ -270,7 +268,7 @@ static int HX8399_unprepare(struct drm_panel *panel)
 
 static int HX8399_prepare(struct drm_panel *panel)
 {
-        struct lcm *ctx = panel_to_HX8399(panel);
+        struct hx8399c *ctx = panel_to_HX8399(panel);
         int ret;
 
         pr_info("%s+\n", __func__);
@@ -297,22 +295,15 @@ static int HX8399_prepare(struct drm_panel *panel)
         ctx->prepared = true;
 
 #ifdef PANEL_SUPPORT_READBACK
-        lcm_panel_get_data(ctx);
+        hx8399c_panel_get_data(ctx);
 #endif
         pr_info("%s-\n", __func__);
         return ret;
-
-disable_vcc:
-	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
-	regulator_disable(ctx->vcc);
-	pr_info("%s disable_vcc-\n", __func__);
-
-	return ret;
 }
 
 static int HX8399_enable(struct drm_panel *panel)
 {
-        struct lcm *ctx = panel_to_HX8399(panel);
+        struct hx8399c *ctx = panel_to_HX8399(panel);
         pr_info("%s+\n", __func__);
         if (ctx->enabled)
                 return 0;
@@ -363,7 +354,7 @@ static int HX8399_get_modes(struct drm_panel *panel,
 }
 
 
-static const struct drm_panel_funcs lcm_drm_funcs = {
+static const struct drm_panel_funcs hx8399c_drm_funcs = {
         .disable = HX8399_disable,
         .unprepare = HX8399_unprepare,
         .prepare = HX8399_prepare,
@@ -371,10 +362,10 @@ static const struct drm_panel_funcs lcm_drm_funcs = {
         .get_modes = HX8399_get_modes,
 };
 
-static int lcm_probe(struct mipi_dsi_device *dsi)
+static int hx8399c_probe(struct mipi_dsi_device *dsi)
 {
         struct device *dev = &dsi->dev;
-        struct lcm *ctx;
+        struct hx8399c *ctx;
         struct device_node *backlight;
         int ret;
         struct device_node *dsi_node, *remote_node = NULL, *endpoint = NULL;
@@ -385,19 +376,19 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
                 if (endpoint) {
                         remote_node = of_graph_get_remote_port_parent(endpoint);
                         if (!remote_node) {
-                                pr_info("No panel connected,skip probe lcm\n");
+                                pr_info("No panel connected,skip probe hx8399c\n");
                                 return -ENODEV;
                         }
                         pr_info("device node name:%s\n", remote_node->name);
                 }
         }
         if (remote_node != dev->of_node) {
-                pr_info("%s+ skip probe due to not current lcm\n", __func__);
+                pr_info("%s+ skip probe due to not current hx8399c\n", __func__);
                 return -ENODEV;
         }
 
         pr_info("%s+\n", __func__);
-        ctx = devm_kzalloc(dev, sizeof(struct lcm), GFP_KERNEL);
+        ctx = devm_kzalloc(dev, sizeof(struct hx8399c), GFP_KERNEL);
         if (!ctx)
                 return -ENOMEM;
 
@@ -432,14 +423,10 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 			return dev_err_probe(dev, PTR_ERR(ctx->vcc),
 				     "Failed to request vcc regulator\n");
 
-		ctx->iovcc = devm_regulator_get(dev, "iovcc");
-		if (IS_ERR(ctx->iovcc))
-			return dev_err_probe(dev, PTR_ERR(ctx->iovcc),
-				     "Failed to request iovcc regulator\n");
 
         ctx->prepared = true;
         ctx->enabled = true;
-        drm_panel_init(&ctx->panel, dev, &lcm_drm_funcs, DRM_MODE_CONNECTOR_DSI);
+        drm_panel_init(&ctx->panel, dev, &hx8399c_drm_funcs, DRM_MODE_CONNECTOR_DSI);
 
         drm_panel_add(&ctx->panel);
 
@@ -455,9 +442,9 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 return ret;
 }
 
-static int lcm_remove(struct mipi_dsi_device *dsi)
+static int hx8399c_remove(struct mipi_dsi_device *dsi)
 {
-        struct lcm *ctx = mipi_dsi_get_drvdata(dsi);
+        struct hx8399c *ctx = mipi_dsi_get_drvdata(dsi);
         pr_info("%s+\n", __func__);
         mipi_dsi_detach(dsi);
         drm_panel_remove(&ctx->panel);
@@ -466,24 +453,24 @@ static int lcm_remove(struct mipi_dsi_device *dsi)
         return 0;
 }
 
-static const struct of_device_id lcm_of_match[] = {
+static const struct of_device_id hx8399c_of_match[] = {
         { .compatible = "xinsun,xf055fhd03", },
         { }
 };
 
-MODULE_DEVICE_TABLE(of, lcm_of_match);
+MODULE_DEVICE_TABLE(of, hx8399c_of_match);
 
-static struct mipi_dsi_driver lcm_driver = {
-        .probe = lcm_probe,
-        .remove = lcm_remove,
+static struct mipi_dsi_driver hx8399c_driver = {
+        .probe = hx8399c_probe,
+        .remove = hx8399c_remove,
         .driver = {
                 .name = DRV_NAME,
                 .owner = THIS_MODULE,
-                .of_match_table = lcm_of_match,
+                .of_match_table = hx8399c_of_match,
         },
 };
 
-module_mipi_dsi_driver(lcm_driver);
+module_mipi_dsi_driver(hx8399c_driver);
 
 MODULE_AUTHOR("Christopher Harris <c.harris@communicationinnovations.com.au>");
 MODULE_DESCRIPTION("DRM driver for Himax HX8399C based MIPI DSI panels");

@@ -27,7 +27,8 @@ struct hx8399c {
         struct drm_panel panel;
         struct backlight_device *backlight;
         struct gpio_desc *reset_gpio;
-		struct regulator *vcc;
+	struct gpio_desc *enable_gpio;
+	struct regulator *vcc;
 
         bool prepared;
         bool enabled;
@@ -200,6 +201,9 @@ static void xf055fhd03_init_sequence(struct hx8399c *ctx)
 		               0x9F, 0xA7, 0xAA, 0xB1, 0xB8, 0xBC, 0xC8, 0xBD,
 		               0xBF, 0xC4, 0x6B, 0x66, 0x72, 0x77);
 
+mdelay(5);
+
+mdelay(5);
 
 
 	/* 6.3.17 SETPANEL: Set Panel Related Register (CCh) */
@@ -211,11 +215,11 @@ static void xf055fhd03_init_sequence(struct hx8399c *ctx)
 			      0xFF,0xF9);
        
 
-        mdelay(120);
+        //mdelay(120);
 	mipi_dsi_dcs_write_seq_static(ctx,0x11,0x00);
-
+        mdelay(120);
         mipi_dsi_dcs_write_seq_static(ctx,0x29,0x00);
-        mdelay(20);
+        mdelay(10);
 }
 
 static int HX8399_disable(struct drm_panel *panel)
@@ -239,7 +243,7 @@ static int HX8399_unprepare(struct drm_panel *panel)
 {
         struct hx8399c *ctx = panel_to_HX8399(panel);
 
-        dev_info("%s+\n", __func__);
+        dev_info(ctx->dev, "%s+\n", __func__);
         if (!ctx->prepared)
                 return 0;
         //mipi_dsi_dcs_write_seq_static(ctx, 0xFF, 0x98, 0x81, 0x00);
@@ -271,20 +275,21 @@ static int HX8399_prepare(struct drm_panel *panel)
         struct hx8399c *ctx = panel_to_HX8399(panel);
         int ret;
 
-        dev_info("%s+\n", __func__);
+        dev_info(ctx->dev, "%s+\n", __func__);
         if (ctx->prepared)
                 return 0;
+
         gpiod_set_value_cansleep(ctx->reset_gpio, 1);
 
-		ret = regulator_enable(ctx->vcc);
-		if (ret) {
-			dev_err(ctx->dev, "Failed to enable vcc supply: %d\n", ret);
-			return ret;
-		}
+	ret = regulator_enable(ctx->vcc);
+	if (ret) {
+		dev_err(ctx->dev, "Failed to enable vcc supply: %d\n", ret);
+		return ret;
+	}
 
-		gpiod_set_value_cansleep(ctx->reset_gpio, 0);
+	gpiod_set_value_cansleep(ctx->reset_gpio, 0);
 
-		msleep(180);
+	msleep(180);
 
         xf055fhd03_init_sequence(ctx);
 
@@ -297,14 +302,14 @@ static int HX8399_prepare(struct drm_panel *panel)
 #ifdef PANEL_SUPPORT_READBACK
         hx8399c_panel_get_data(ctx);
 #endif
-        dev_info("%s-\n", __func__);
+        dev_info(ctx->dev, "%s-\n", __func__);
         return ret;
 }
 
 static int HX8399_enable(struct drm_panel *panel)
 {
         struct hx8399c *ctx = panel_to_HX8399(panel);
-        dev_info("%s+\n", __func__);
+        dev_info(ctx->dev, "%s+\n", __func__);
         if (ctx->enabled)
                 return 0;
 
@@ -314,20 +319,10 @@ static int HX8399_enable(struct drm_panel *panel)
         }
 
         ctx->enabled = true;
-        dev_info("%s-\n", __func__);
+        dev_info(ctx->dev, "%s-\n", __func__);
 
         return 0;
 }
-/*
-        params->dsi.vertical_sync_active = 2;
-        params->dsi.vertical_backporch = 5;
-        params->dsi.vertical_frontporch = 9;
-        params->dsi.vertical_active_line = FRAME_HEIGHT;
-
-        params->dsi.horizontal_sync_active = 20; //50--40
-        params->dsi.horizontal_backporch = 20;
-        params->dsi.horizontal_frontporch = 80;//  60-->75
-*/
 
 
 static int HX8399_get_modes(struct drm_panel *panel,
@@ -376,18 +371,18 @@ static int hx8399c_probe(struct mipi_dsi_device *dsi)
                 if (endpoint) {
                         remote_node = of_graph_get_remote_port_parent(endpoint);
                         if (!remote_node) {
-                                dev_info("No panel connected,skip probe hx8399c\n");
+                                dev_info(dev, "No panel connected,skip probe hx8399c\n");
                                 return -ENODEV;
                         }
-                        dev_info("device node name:%s\n", remote_node->name);
+                        dev_info(dev, "device node name:%s\n", remote_node->name);
                 }
         }
         if (remote_node != dev->of_node) {
-                dev_info("%s+ skip probe due to not current hx8399c\n", __func__);
+                dev_info(dev, "%s+ skip probe due to not current hx8399c\n", __func__);
                 return -ENODEV;
         }
 
-        dev_info("%s+\n", __func__);
+        dev_info(dev,"%s+\n", __func__);
         ctx = devm_kzalloc(dev, sizeof(struct hx8399c), GFP_KERNEL);
         if (!ctx)
                 return -ENOMEM;
@@ -418,10 +413,21 @@ static int hx8399c_probe(struct mipi_dsi_device *dsi)
         }
         devm_gpiod_put(dev, ctx->reset_gpio);
 
-		ctx->vcc = devm_regulator_get(dev, "vcc");
-		if (IS_ERR(ctx->vcc))
-			return dev_err_probe(dev, PTR_ERR(ctx->vcc),
-				     "Failed to request vcc regulator\n");
+	ctx->vcc = devm_regulator_get(dev, "vcc");
+	if (IS_ERR(ctx->vcc))
+		return dev_err_probe(dev, PTR_ERR(ctx->vcc),
+			     "Failed to request vcc regulator\n");
+
+
+	/*ctx->enable_gpio = devm_gpiod_get_optional(dev, "enable", GPIOD_OUT_HIGH);
+	if (IS_ERR(ctx->enable_gpio)) {
+		ret = PTR_ERR(ctx->enable_gpio);
+		if (ret != -EPROBE_DEFER)
+			dev_err(dev, "failed to get enable GPIO: %d\n", ret);
+		return ret;
+	} else {
+            devm_gpiod_put(dev, ctx->enable_gpio);
+        }*/
 
 
         //ctx->prepared = true;
@@ -438,17 +444,17 @@ static int hx8399c_probe(struct mipi_dsi_device *dsi)
 		}
 
 
-        dev_info("%s-\n", __func__);
-return ret;
+        dev_info(ctx->dev, "%s-\n", __func__);
+	return ret;
 }
 
 static int hx8399c_remove(struct mipi_dsi_device *dsi)
 {
         struct hx8399c *ctx = mipi_dsi_get_drvdata(dsi);
-        dev_info("%s+\n", __func__);
+        dev_info(ctx->dev, "%s+\n", __func__);
         mipi_dsi_detach(dsi);
         drm_panel_remove(&ctx->panel);
-        dev_info("%s-\n", __func__);
+        dev_info(ctx->dev, "%s-\n", __func__);
 
         return 0;
 }

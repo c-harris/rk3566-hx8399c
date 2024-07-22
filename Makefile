@@ -13,5 +13,6 @@ clean:
 
 modules_install:
 	make -C $(KPATH) M=$(CURDIR) modules_install
+	depmod -A
 doc:
 	doxygen ./Doxyfile

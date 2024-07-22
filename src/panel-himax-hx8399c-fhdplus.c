@@ -424,8 +424,8 @@ static int hx8399c_probe(struct mipi_dsi_device *dsi)
 				     "Failed to request vcc regulator\n");
 
 
-        ctx->prepared = true;
-        ctx->enabled = true;
+        //ctx->prepared = true;
+        //ctx->enabled = true;
         drm_panel_init(&ctx->panel, dev, &hx8399c_drm_funcs, DRM_MODE_CONNECTOR_DSI);
 
         drm_panel_add(&ctx->panel);

@@ -41,7 +41,7 @@
 #define DRV_NAME "panel-himax-HX8399"
 
 /* enable Readback support on panel" */
-#define PANEL_SUPPORT_READBACK
+/* #define PANEL_SUPPORT_READBACK */
 
 #define HFP (16) // horizontal frontporch
 #define HSA (40) // horizontal sync active
@@ -53,7 +53,7 @@
 #define HAC (1080) // hoeizontal resolution
 
 static struct drm_display_mode default_mode = {
-        .clock = 156672,//htotal*vtotal*vrefresh/1000   163943   182495
+        .clock = ((HAC + HFP + HSA + HBP) * (VAC + VFP + VSA + VBP) * 60)/1000, // 153538, //156672,//htotal*vtotal*vrefresh/1000   163943   182495
         .hdisplay = HAC,
         .hsync_start = HAC + HFP,
         .hsync_end = HAC + HFP + HSA,

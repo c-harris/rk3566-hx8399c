@@ -239,7 +239,7 @@ static int HX8399_unprepare(struct drm_panel *panel)
 {
         struct hx8399c *ctx = panel_to_HX8399(panel);
 
-        pr_info("%s+\n", __func__);
+        dev_info("%s+\n", __func__);
         if (!ctx->prepared)
                 return 0;
         //mipi_dsi_dcs_write_seq_static(ctx, 0xFF, 0x98, 0x81, 0x00);
@@ -271,7 +271,7 @@ static int HX8399_prepare(struct drm_panel *panel)
         struct hx8399c *ctx = panel_to_HX8399(panel);
         int ret;
 
-        pr_info("%s+\n", __func__);
+        dev_info("%s+\n", __func__);
         if (ctx->prepared)
                 return 0;
         gpiod_set_value_cansleep(ctx->reset_gpio, 1);
@@ -297,14 +297,14 @@ static int HX8399_prepare(struct drm_panel *panel)
 #ifdef PANEL_SUPPORT_READBACK
         hx8399c_panel_get_data(ctx);
 #endif
-        pr_info("%s-\n", __func__);
+        dev_info("%s-\n", __func__);
         return ret;
 }
 
 static int HX8399_enable(struct drm_panel *panel)
 {
         struct hx8399c *ctx = panel_to_HX8399(panel);
-        pr_info("%s+\n", __func__);
+        dev_info("%s+\n", __func__);
         if (ctx->enabled)
                 return 0;
 
@@ -314,7 +314,7 @@ static int HX8399_enable(struct drm_panel *panel)
         }
 
         ctx->enabled = true;
-        pr_info("%s-\n", __func__);
+        dev_info("%s-\n", __func__);
 
         return 0;
 }
@@ -376,18 +376,18 @@ static int hx8399c_probe(struct mipi_dsi_device *dsi)
                 if (endpoint) {
                         remote_node = of_graph_get_remote_port_parent(endpoint);
                         if (!remote_node) {
-                                pr_info("No panel connected,skip probe hx8399c\n");
+                                dev_info("No panel connected,skip probe hx8399c\n");
                                 return -ENODEV;
                         }
-                        pr_info("device node name:%s\n", remote_node->name);
+                        dev_info("device node name:%s\n", remote_node->name);
                 }
         }
         if (remote_node != dev->of_node) {
-                pr_info("%s+ skip probe due to not current hx8399c\n", __func__);
+                dev_info("%s+ skip probe due to not current hx8399c\n", __func__);
                 return -ENODEV;
         }
 
-        pr_info("%s+\n", __func__);
+        dev_info("%s+\n", __func__);
         ctx = devm_kzalloc(dev, sizeof(struct hx8399c), GFP_KERNEL);
         if (!ctx)
                 return -ENOMEM;
@@ -438,17 +438,17 @@ static int hx8399c_probe(struct mipi_dsi_device *dsi)
 		}
 
 
-        pr_info("%s-\n", __func__);
+        dev_info("%s-\n", __func__);
 return ret;
 }
 
 static int hx8399c_remove(struct mipi_dsi_device *dsi)
 {
         struct hx8399c *ctx = mipi_dsi_get_drvdata(dsi);
-        pr_info("%s+\n", __func__);
+        dev_info("%s+\n", __func__);
         mipi_dsi_detach(dsi);
         drm_panel_remove(&ctx->panel);
-        pr_info("%s-\n", __func__);
+        dev_info("%s-\n", __func__);
 
         return 0;
 }

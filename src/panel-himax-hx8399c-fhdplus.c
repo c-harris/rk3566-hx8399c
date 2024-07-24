@@ -151,9 +151,14 @@ static void xf055fhd03_init_sequence(struct hx8399c* ctx)
     mipi_dsi_dcs_write_seq_static(ctx, HX8399_CMD_SETGIP0,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x10, 0x04, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x05, 0x05, 0x07, 0x00, 0x00, 0x00, 0x05, 0x40);
 
+
+    msleep(5);
+
+
     /* 6.3.21 Set GIP Option1 (D5h) */
     mipi_dsi_dcs_write_seq_static(ctx, HX8399_CMD_SETGIP1,
         0x18, 0x18, 0x19, 0x19, 0x18, 0x18, 0x21, 0x20, 0x01, 0x00, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x2F, 0x2F, 0x30, 0x30, 0x31, 0x31, 0x18, 0x18, 0x18, 0x18);
+    msleep(5);
 
     /* 6.3.22 Set GIP Option2 (D6h) */
     mipi_dsi_dcs_write_seq_static(ctx, HX8399_CMD_SETGIP2,
@@ -161,6 +166,7 @@ static void xf055fhd03_init_sequence(struct hx8399c* ctx)
         0x04, 0x05, 0x06, 0x07, 0x00, 0x01, 0x40, 0x40, 0x40, 0x40,
         0x40, 0x40, 0x2F, 0x2F, 0x30, 0x30, 0x31, 0x31, 0x40, 0x40,
         0x40, 0x40);
+    msleep(5);
 
 
     /* 6.3.23 SETGIP3: Set GIP option3 (D8h) */
@@ -422,13 +428,16 @@ static int hx8399c_probe(struct mipi_dsi_device* dsi)
             "Failed to request vcc regulator\n");
 
 
-    ctx->enable_gpio = devm_gpiod_get_optional(dev, "enable", GPIOD_ASIS);
+    ctx->enable_gpio = devm_gpiod_get_optional(dev, "enable", GPIOD_OUT_HIGH);
     if (IS_ERR(ctx->enable_gpio)) {
         ret = PTR_ERR(ctx->enable_gpio);
         if (ret != -EPROBE_DEFER)
             dev_err(dev, "failed to get enable GPIO: %d\n", ret);
         return ret;
     }
+
+    devm_gpiod_put(dev, ctx->enable_gpio);
+
     drm_panel_init(&ctx->panel, dev, &hx8399c_drm_funcs, DRM_MODE_CONNECTOR_DSI);
 
     drm_panel_add(&ctx->panel);
